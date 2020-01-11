@@ -16,11 +16,15 @@ public:
   { }
 
   const InputType& operator()() {
-    if (i >= input_stream.size()) {
+    if (is_empty()) {
       throw "Reached end of stream";
     }
 
     return input_stream[i++];
+  }
+
+  boolean is_empty() {
+    return i >= input_stream.size();
   }
 
 };

@@ -3,26 +3,16 @@
 #include <thread>
 #include "Timer.hh"
 
-int fatt(int x) {
-  if (x == 0) {
-    return 1;
-  }
-  return x * fatt(x-1);
-}
-
 int program(int x) {
   int result = 0;
 
-  for (int i=0; i<x*100; ++i) {
-    result += fatt(50);
-  }
+  std::this_thread::sleep_for(std::chrono::microseconds(x));
 
   return result;
 }
 
 void test1() {
-  Farm<int,int>({1,2,3,4,5}, program,5);
-
+  Farm<int,int>({500, 100, 800}, program, 1);
 }
 
 void seq() {

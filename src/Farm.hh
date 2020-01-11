@@ -20,6 +20,8 @@ public:
                       _nw(nw)
   { }
 
+
+
 private:
   Emitter<InputType> _emitter;
   Collector<OutputType> _collector;
