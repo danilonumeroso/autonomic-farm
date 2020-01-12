@@ -4,6 +4,13 @@
 #include <thread>
 #include <functional>
 #include "Collector.hh"
+#include "Scheduler.hh"
+#include "Timer.hh"
+#include <iostream>
+#include <mutex>
+#include <condition_variable>
+
+static std::mutex write;
 
 template <class InputType, class OutputType>
 class Worker {
@@ -11,11 +18,35 @@ private:
   std::function<OutputType (InputType)> f;
   std::thread* t;
 public:
-  Worker(std::function<OutputType (InputType)> f)
-    : f(f) { }
 
-  void operator()(InputType x, const Collector<OutputType>& collector) {
-    collector.push_back(f(x));
+  Worker(std::function<OutputType (InputType)> f)
+    : f(f)
+  { }
+
+  ~Worker() {
+    delete t;
+  }
+
+  void exec(InputType x,
+            Collector<OutputType>* collector,
+            Scheduler<InputType, OutputType>& scheduler) {
+
+    t = new std::thread([x, this, collector, &scheduler] {
+                      Timer t("Step (" + std::to_string(x) + ")");
+                      InputType res = f(x);
+                      {
+                        std::unique_lock<std::mutex> lock(write);
+                        collector->push_back(res);
+                        scheduler.done(this);
+                      }
+                    });
+  }
+
+  void join() {
+    if (t == nullptr) {
+      return;
+    }
+    t->join();
   }
 };
 

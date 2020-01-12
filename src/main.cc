@@ -4,15 +4,22 @@
 #include "Timer.hh"
 
 int program(int x) {
-  int result = 0;
-
   std::this_thread::sleep_for(std::chrono::microseconds(x));
 
-  return result;
+  return x;
 }
 
-void test1() {
-  Farm<int,int>({500, 100, 800}, program, 1);
+void par1() {
+  Farm<int,int> farm({500, 100, 800, 400}, program, 3);
+  std::vector<int> const* results;
+  {
+    Timer j("Whole job");
+    results = &farm.run();
+  }
+
+  for (auto start = results->cbegin(), end = results->cend(); start < end; ++start) {
+    std::cout << *start << std::endl;
+  }
 }
 
 void seq() {
@@ -28,5 +35,5 @@ void seq() {
 
 
 int main() {
-  seq();
+  par1();
 }

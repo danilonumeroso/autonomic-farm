@@ -15,7 +15,7 @@ public:
       i(0)
   { }
 
-  const InputType& operator()() {
+  const InputType& emit() {
     if (is_empty()) {
       throw "Reached end of stream";
     }
@@ -23,7 +23,7 @@ public:
     return input_stream[i++];
   }
 
-  boolean is_empty() {
+  bool is_empty() {
     return i >= input_stream.size();
   }
 
