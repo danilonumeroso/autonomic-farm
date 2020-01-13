@@ -10,44 +10,47 @@
 #include <mutex>
 #include <condition_variable>
 
-static std::mutex write;
+namespace spm {
+  std::mutex write;
 
-template <class InputType, class OutputType>
-class Worker {
-private:
-  std::function<OutputType (InputType)> f;
-  std::thread* t;
-public:
+  template <class InputType, class OutputType>
+  class Worker {
+  private:
+    std::function<OutputType (InputType)> f;
+    std::thread* t;
+  public:
 
-  Worker(std::function<OutputType (InputType)> f)
-    : f(f)
-  { }
+    Worker(std::function<OutputType (InputType)> f)
+      : f(f)
+    { }
 
-  ~Worker() {
-    delete t;
-  }
+    Worker(const Worker&) = delete;
+    Worker(const Worker&&) = delete;
 
-  void exec(InputType x,
-            Collector<OutputType>* collector,
-            Scheduler<InputType, OutputType>& scheduler) {
-
-    t = new std::thread([x, this, collector, &scheduler] {
-                      Timer t("Step (" + std::to_string(x) + ")");
-                      InputType res = f(x);
-                      {
-                        std::unique_lock<std::mutex> lock(write);
-                        collector->push_back(res);
-                        scheduler.done(this);
-                      }
-                    });
-  }
-
-  void join() {
-    if (t == nullptr) {
-      return;
+    ~Worker() {
+      delete t;
     }
-    t->join();
-  }
-};
 
+    void exec(InputType x, Collector<OutputType>* collector,
+              Scheduler<InputType, OutputType>* scheduler) {
+
+      t = new std::thread([x, this, collector, scheduler] {
+                            Timer t("Step (" + std::to_string(x) + ")");
+                            InputType res = f(x);
+                            {
+                              std::unique_lock<std::mutex> lock(write);
+                              collector->push_back(res);
+                              scheduler->done(this);
+                            }
+                          });
+    }
+
+    void join() {
+      if (t == nullptr) {
+        return;
+      }
+      t->join();
+    }
+  };
+}
 #endif

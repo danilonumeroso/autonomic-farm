@@ -3,30 +3,36 @@
 
 #include <vector>
 
-template <class InputType>
-class Emitter {
-private:
-  std::vector<InputType> input_stream;
-  unsigned i;
+namespace spm {
 
-public:
-  Emitter(std::vector<InputType>&& stream)
-    : input_stream(stream),
-      i(0)
-  { }
+  template <class InputType>
+  class Emitter {
+  private:
+    std::vector<InputType> input_stream;
+    unsigned i;
 
-  const InputType& emit() {
-    if (is_empty()) {
-      throw "Reached end of stream";
+  public:
+
+    Emitter(Emitter&) = delete;
+    Emitter(Emitter&&) = delete;
+
+    Emitter(std::vector<InputType>&& stream)
+      : input_stream(stream),
+        i(0)
+    { }
+
+    const InputType& emit() {
+      if (is_empty()) {
+        throw "Reached end of stream";
+      }
+
+      return input_stream[i++];
     }
 
-    return input_stream[i++];
-  }
+    bool is_empty() {
+      return i >= input_stream.size();
+    }
 
-  bool is_empty() {
-    return i >= input_stream.size();
-  }
-
-};
-
+  };
+}
 #endif

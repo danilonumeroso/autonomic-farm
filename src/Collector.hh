@@ -1,20 +1,23 @@
 #ifndef COLLECTOR_HH_GUARD
 #define COLLECTOR_HH_GUARD
 
-template <class OutputType>
-class Collector {
-public:
+namespace spm {
 
-  void push_back(const OutputType& r) {
-    results.push_back(r);
-  }
+  template <class OutputType>
+  class Collector {
+  public:
 
-  const std::vector<OutputType>& get_results() const {
-    return results;
-  }
+    void push_back(const OutputType& r) {
+      results.push_back(r);
+    }
 
-private:
-  std::vector<OutputType> results;
-};
+    const std::vector<OutputType>& get_results() const {
+      return results;
+    }
+
+  private:
+    std::vector<OutputType> results;
+  };
+}
 
 #endif
