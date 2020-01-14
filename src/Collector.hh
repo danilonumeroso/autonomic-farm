@@ -15,6 +15,10 @@ namespace spm {
       return results;
     }
 
+    unsigned no_results() const {
+      return results.size();
+    }
+
   private:
     std::vector<OutputType> results;
   };

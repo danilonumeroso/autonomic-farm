@@ -11,7 +11,7 @@
 #include <condition_variable>
 
 namespace spm {
-  std::mutex write;
+  std::mutex write_to_output_stream;
 
   template <class InputType, class OutputType>
   class Worker {
@@ -38,10 +38,10 @@ namespace spm {
                             Timer t("Step (" + std::to_string(x) + ")");
                             InputType res = f(x);
                             {
-                              std::unique_lock<std::mutex> lock(write);
+                              std::unique_lock<std::mutex> lock(write_to_output_stream);
                               collector->push_back(res);
-                              scheduler->done(this);
                             }
+                            scheduler->done(this);
                           });
     }
 

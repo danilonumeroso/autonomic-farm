@@ -13,6 +13,7 @@
 
 namespace spm {
   extern std::condition_variable can_emit;
+  std::mutex modify_workers_queue;
 
   template <class InputType, class OutputType>
   class Farm;
@@ -36,12 +37,12 @@ namespace spm {
               unsigned nw)
       : _all_workers(),
         _sleeping_workers(),
-        _more_workers()
+        _f(f)
     {
       for (unsigned i=0; i < nw; ++i) {
         auto w = new Worker<InputType, OutputType>(f);
         _all_workers.push_back(w);
-        _sleeping_workers.push(w);
+        _sleeping_workers.push_back(w);
       }
 
       assert(_sleeping_workers.size() == nw);
@@ -59,15 +60,44 @@ namespace spm {
         return nullptr;
       }
 
-      pointer worker = _sleeping_workers.front();
-      _sleeping_workers.pop();
+      pointer worker = _sleeping_workers.back();
+      _sleeping_workers.pop_back();
 
       return worker;
     }
 
     void done(pointer worker) {
+      {
+        std::unique_lock<std::mutex> lock(modify_workers_queue);
+        _sleeping_workers.push_back(worker);
+      }
       can_emit.notify_one();
-      _sleeping_workers.push(worker);
+    }
+
+    void add_worker(unsigned n) {
+      std::unique_lock<std::mutex> lock(modify_workers_queue);
+      for (int i = 0; i < n; ++i) {
+        auto w = new Worker<InputType, OutputType>(_f);
+        _sleeping_workers.push_back(w);
+        _all_workers.push_back(w);
+      }
+    }
+
+    void remove_worker() {
+      std::unique_lock<std::mutex> lock(modify_workers_queue);
+      if (_sleeping_workers.empty()) {
+        return;
+      }
+
+      auto w = _sleeping_workers.back();
+      _sleeping_workers.pop_back();
+
+      for (auto i = _all_workers.begin(), end = _all_workers.end(); i < end; ++i) {
+        if (*i == w) {
+          _all_workers.erase(i);
+          break;
+        }
+      }
     }
 
     void join() {
@@ -78,8 +108,8 @@ namespace spm {
 
   private:
     std::vector<pointer> _all_workers;
-    std::queue<pointer> _sleeping_workers;
-    std::queue<pointer> _more_workers;
+    std::vector<pointer> _sleeping_workers;
+    std::function<OutputType (InputType)> _f;
   };
 }
 #endif

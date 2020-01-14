@@ -4,13 +4,13 @@
 #include "../src/Timer.hh"
 
 int program(int x) {
-  std::this_thread::sleep_for(std::chrono::microseconds(x));
+  std::this_thread::sleep_for(std::chrono::milliseconds(x));
 
   return x;
 }
 
 void par(int nw, float ts_goal) {
-  spm::Farm<int,int> farm({500, 100, 800, 400}, program, nw);
+  spm::Farm<int,int> farm({500, 100, 800, 400}, program, ts_goal, nw);
   {
     Timer j("Whole job");
     farm.run();

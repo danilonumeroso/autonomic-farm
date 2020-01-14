@@ -5,6 +5,7 @@
 #include "Collector.hh"
 #include "Worker.hh"
 #include "Scheduler.hh"
+#include "Monitor.hh"
 #include <functional>
 #include <queue>
 #include <condition_variable>
@@ -24,19 +25,22 @@ namespace spm {
 
     Farm(std::initializer_list<InputType> stream,
          std::function<OutputType (InputType)> f,
+         float ts_goal,
          unsigned nw) : _emitter(new Emitter<InputType>(stream)),
                         _collector(new Collector<OutputType>()),
-                        _scheduler(new Scheduler<InputType, OutputType>(f, nw))
+                        _scheduler(new Scheduler<InputType, OutputType>(f, nw)),
+                        _monitor(new Monitor<InputType, OutputType>(_collector, _scheduler, ts_goal))
     { }
 
     ~Farm() {
+      delete _monitor;
       delete _scheduler;
       delete _collector;
       delete _emitter;
     }
 
     const std::vector<OutputType>& run() {
-
+      _monitor->execute();
       while (!_emitter->is_empty()) {
         worker_type* worker;
 
@@ -50,6 +54,7 @@ namespace spm {
         worker->exec(next, _collector, _scheduler);
       }
       _scheduler->join();
+      _monitor->join();
       return _collector->get_results();
     }
 
@@ -57,7 +62,7 @@ namespace spm {
     Emitter<InputType>* _emitter;
     Collector<OutputType>* _collector;
     Scheduler<InputType, OutputType>* _scheduler;
-    // Monitor
+    Monitor<InputType, OutputType>* _monitor;
   };
 }
 #endif
