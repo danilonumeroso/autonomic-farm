@@ -14,6 +14,7 @@
 namespace spm {
   extern std::condition_variable can_emit;
   std::mutex modify_workers_queue;
+  int _worker_id = 0;
 
   template <class InputType, class OutputType>
   class Farm;
@@ -40,7 +41,7 @@ namespace spm {
         _f(f)
     {
       for (unsigned i=0; i < nw; ++i) {
-        auto w = new Worker<InputType, OutputType>(f);
+        auto w = new Worker<InputType, OutputType>(f, ++_worker_id);
         _all_workers.push_back(w);
         _sleeping_workers.push_back(w);
       }
@@ -77,7 +78,7 @@ namespace spm {
     void add_worker(unsigned n) {
       std::unique_lock<std::mutex> lock(modify_workers_queue);
       for (int i = 0; i < n; ++i) {
-        auto w = new Worker<InputType, OutputType>(_f);
+        auto w = new Worker<InputType, OutputType>(_f, ++_worker_id);
         _sleeping_workers.push_back(w);
         _all_workers.push_back(w);
       }
@@ -85,7 +86,8 @@ namespace spm {
 
     void remove_worker() {
       std::unique_lock<std::mutex> lock(modify_workers_queue);
-      if (_sleeping_workers.empty()) {
+
+      if (_sleeping_workers.empty() || _all_workers.size() == 1) {
         return;
       }
 
@@ -101,6 +103,7 @@ namespace spm {
     }
 
     void join() {
+      int h = 0;
       for (auto i = _all_workers.begin(), end = _all_workers.end(); i < end; ++i) {
         (*i)->join();
       }

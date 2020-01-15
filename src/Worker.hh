@@ -6,22 +6,22 @@
 #include "Collector.hh"
 #include "Scheduler.hh"
 #include "Timer.hh"
-#include <iostream>
 #include <mutex>
-#include <condition_variable>
 
 namespace spm {
   std::mutex write_to_output_stream;
 
   template <class InputType, class OutputType>
   class Worker {
+
   private:
     std::function<OutputType (InputType)> f;
     std::thread* t;
+    int id;
   public:
 
-    Worker(std::function<OutputType (InputType)> f)
-      : f(f)
+    Worker(std::function<OutputType (InputType)> f, int id)
+      : f(f), id(id)
     { }
 
     Worker(const Worker&) = delete;
@@ -33,6 +33,8 @@ namespace spm {
 
     void exec(InputType x, Collector<OutputType>* collector,
               Scheduler<InputType, OutputType>* scheduler) {
+
+      std::cout << "Worker_" << id << "::exec()" << std::endl;
 
       t = new std::thread([x, this, collector, scheduler] {
                             Timer t("Step (" + std::to_string(x) + ")");

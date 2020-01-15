@@ -21,8 +21,13 @@ namespace spm {
         _scheduler(scheduler),
         stop(false),
         ts_goal(ts_goal),
-        prev_no_results(0U)
+        prev_no_results(0U),
+        times()
     { }
+
+    ~Monitor() {
+      delete t;
+    }
 
     void execute() {
       t = new std::thread([this]{
@@ -43,6 +48,7 @@ namespace spm {
 
     void join() {
       stop = true;
+      t->join();
     }
 
   private:
@@ -50,12 +56,17 @@ namespace spm {
     Scheduler<InputType, OutputType>* _scheduler;
     bool stop;
     float ts_goal;
+    std::vector<float> times;
     unsigned prev_no_results;
     std::thread* t;
 
     void default_policy(unsigned no_results) {
       float ts = 0.5/no_results;
       float ratio = ts/ts_goal;
+
+      times.push_back(ts);
+
+      std::cout << "Monitor:: measured service time: " << ts << std::endl;
 
       if (ratio <= 0.8) {
         _scheduler->remove_worker();
@@ -64,7 +75,7 @@ namespace spm {
       }
 
       if (ratio >= 1.2) {
-        unsigned to_add = std::min((int) ratio, 4);
+        unsigned to_add = std::min((int) ratio, 1);
         _scheduler->add_worker(to_add);
         std::cout << "Attempt to add " << to_add << " workers" << std::endl;
         return;

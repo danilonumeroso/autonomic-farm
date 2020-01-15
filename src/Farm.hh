@@ -53,8 +53,10 @@ namespace spm {
         InputType next = _emitter->emit();
         worker->exec(next, _collector, _scheduler);
       }
-      _scheduler->join();
+
       _monitor->join();
+      _scheduler->join();
+
       return _collector->get_results();
     }
 
