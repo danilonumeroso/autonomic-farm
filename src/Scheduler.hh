@@ -13,7 +13,9 @@
 
 namespace spm {
   extern std::condition_variable can_emit;
+
   std::mutex modify_workers_queue;
+
   int _worker_id = 0;
 
   template <class InputType, class OutputType>
@@ -50,6 +52,9 @@ namespace spm {
     }
 
     ~Scheduler() {
+
+      std::cout << "Final Farm configuration: " << _all_workers.size() << " worker" << (_all_workers.size() > 1 ? "s" : "") << std::endl;
+
       for (auto i = _all_workers.begin(), end = _all_workers.end();
            i < end; ++i) {
         delete *i;
@@ -68,11 +73,13 @@ namespace spm {
     }
 
     void done(pointer worker) {
-      {
-        std::unique_lock<std::mutex> lock(modify_workers_queue);
-        _sleeping_workers.push_back(worker);
+      if (worker->will_terminate()) {
+        return;
       }
+      std::unique_lock<std::mutex> lock(modify_workers_queue);
+      _sleeping_workers.push_back(worker);
       can_emit.notify_one();
+
     }
 
     void add_worker(unsigned n) {
@@ -85,21 +92,17 @@ namespace spm {
     }
 
     void remove_worker() {
-      std::unique_lock<std::mutex> lock(modify_workers_queue);
-
-      if (_sleeping_workers.empty() || _all_workers.size() == 1) {
+      if (_all_workers.size() == 1) {
         return;
-      }
+     }
 
-      auto w = _sleeping_workers.back();
-      _sleeping_workers.pop_back();
+      _all_workers.back()->drop();
+      _all_workers.pop_back();
+    //   std::unique_lock<std::mutex> lock(modify_workers_queue);
 
-      for (auto i = _all_workers.begin(), end = _all_workers.end(); i < end; ++i) {
-        if (*i == w) {
-          _all_workers.erase(i);
-          break;
-        }
-      }
+    //   auto w = _all_workers.back();
+    //   w->join();
+    //   _all_workers.pop_back();
     }
 
     void join() {

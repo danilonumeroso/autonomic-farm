@@ -44,8 +44,12 @@ namespace spm {
       while (!_emitter->is_empty()) {
         worker_type* worker;
 
+        // std::cout << "Farm::CYCLE" << std::endl;
+
+        // worker = _scheduler->pick();
         if ((worker = _scheduler->pick()) == nullptr) {
           std::unique_lock<std::mutex> lock(mutex);
+          // std::cout << "Farm::LOCKED" << std::endl;
           can_emit.wait(lock);
           continue;
         }
