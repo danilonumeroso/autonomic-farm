@@ -3,17 +3,30 @@ CXXFLAGS = -std=c++11
 LIBS	 = -lpthread
 BINDIR   = bin
 TEST     = test
+REPORT    = -D ENABLE_REPORT
 
-all: 4l1l8l 1l4l8l 8l4l1l 8l1l4l
+all: tiny_418 tiny_148 tiny_841 tiny_814 large_418 large_148 large_841 large_814
 
-4l1l8l: $(TEST)/main.cc
-	$(CXX) $(FLAGS) $^ -o $(BINDIR)/418 $(LIBS) -D TEST_4L_1L_8L
+tiny_418: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/tiny_418 $(LIBS) -D TINY_TEST_4L_1L_8L $(REPORT)
 
-1l4l8l: $(TEST)/main.cc
-	$(CXX) $(FLAGS) $^ -o $(BINDIR)/184 $(LIBS) -D TEST_1L_4L_8L
+tiny_148: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/tiny_148 $(LIBS) -D TINY_TEST_1L_4L_8L $(REPORT)
 
-8l4l1l: $(TEST)/main.cc
-	$(CXX) $(FLAGS) $^ -o $(BINDIR)/841 $(LIBS) -D TEST_8L_4L_1L
+tiny_841: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/tiny_841 $(LIBS) -D TINY_TEST_8L_4L_1L $(REPORT)
 
-8l1l4l: $(TEST)/main.cc
-	$(CXX) $(FLAGS) $^ -o $(BINDIR)/814 $(LIBS) -D TEST_8L_1L_4L
+tiny_814: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/tiny_814 $(LIBS) -D TINY_TEST_8L_1L_4L $(REPORT)
+
+large_418: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/large_418 $(LIBS) -D LARGE_CONSTANT_TEST_4L_1L_8L -D LARGE_TEST $(REPORT)
+
+large_148: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/large_148 $(LIBS) -D LARGE_CONSTANT_TEST_1L_4L_8L -D LARGE_TEST $(REPORT)
+
+large_841: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/large_841 $(LIBS) -D LARGE_CONSTANT_TEST_8L_4L_1L -D LARGE_TEST $(REPORT)
+
+large_814: $(TEST)/main.cc
+	$(CXX) $(FLAGS) $^ -o $(BINDIR)/large_814 $(LIBS) -D LARGE_CONSTANT_TEST_8L_1L_4L -D LARGE_TEST $(REPORT)

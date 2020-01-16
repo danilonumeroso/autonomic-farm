@@ -61,6 +61,10 @@ namespace spm {
       }
     }
 
+    int no_workers() {
+      return _all_workers.size();
+    }
+
     pointer pick() {
       if (_sleeping_workers.empty()) {
         return nullptr;

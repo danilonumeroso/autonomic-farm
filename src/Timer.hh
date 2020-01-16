@@ -6,6 +6,19 @@
 #include <string>
 #include <thread>
 
+template<class T>
+std::string time_type() = delete;
+
+template<>
+std::string time_type<std::chrono::microseconds>() { return "us"; }
+
+template<>
+std::string time_type<std::chrono::milliseconds>() { return "ms"; }
+
+template<>
+std::string time_type<std::chrono::seconds>() { return "s"; }
+
+template <class UnitOfTime>
 class Timer {
 private:
   std::chrono::system_clock::time_point _start;
@@ -22,9 +35,9 @@ public:
   ~Timer() {
     _stop = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed = _stop - _start;
-    auto musec = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+    auto musec = std::chrono::duration_cast<UnitOfTime>(elapsed).count();
 
-    std::cout << _name << " computed in " << musec << " usec " << std::endl;
+    std::clog << _name << " computed in " << musec << time_type<UnitOfTime>() << std::endl;
   }
 };
 

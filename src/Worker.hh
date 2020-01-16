@@ -43,7 +43,6 @@ namespace spm {
       // std::cout << "Worker_" << id << "::exec()" << std::endl;
 
       t = new std::thread([x, this, collector, scheduler] {
-                            // Timer t("Step (" + std::to_string(x) + ")")
                             InputType res = f(x);
                             {
                               std::unique_lock<std::mutex> lock(write_to_output_stream);
@@ -51,6 +50,7 @@ namespace spm {
                             }
                             scheduler->done(this);
                           });
+
     }
 
     bool will_terminate() {

@@ -3,7 +3,9 @@
 
 #include "Collector.hh"
 #include "Scheduler.hh"
+#include "Constant.hh"
 #include <algorithm>
+#include <cmath>
 
 namespace spm {
 
@@ -68,24 +70,30 @@ namespace spm {
       float ratio = ts/ts_goal;
 
       times.push_back(ts);
-
-      std::cout << "Monitor:: measured service time: " << ts << std::endl;
-      std::cout << "Monitor:: new results arrived: " << no_results << std::endl;
+#ifdef ENABLE_REPORT
+      REPORT(std::to_string(_scheduler->no_workers())
+             .append(",")
+             .append(std::to_string(ts)));
+#endif
+      LOG(std::string("Ts=").append(std::to_string(ts)));
 
       if (ratio <= RANGE[0]) {
-        std::cout << "Monitor::REMOVE_WORKER" << std::endl;
+        LOG("Monitor::REMOVE_WORKER");
         _scheduler->remove_worker();
         return;
       }
 
       if (ratio >= RANGE[1]) {
-        unsigned to_add = std::min((int) ratio, 2);
-        std::cout << "Monitor::ADD_" << to_add << "_WORKER" << (to_add > 1 ? "S" : "")  << std::endl;
+        unsigned to_add = std::sqrt((int)ratio);
+        LOG(std::string("Monitor::ADD_")
+            .append(std::to_string(to_add))
+            .append("_WORKER")
+            .append(to_add > 1 ? "S" : ""));
         _scheduler->add_worker(to_add);
         return;
       }
 
-      std::cout << "Monitor::DO_NOTHING" << std::endl;
+      LOG("Monitor::DO_NOTHING");
     }
   };
 }

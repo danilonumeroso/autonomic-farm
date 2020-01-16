@@ -23,10 +23,10 @@ namespace spm {
     Farm(const Farm&) = delete;
     Farm(const Farm&&) = delete;
 
-    Farm(std::initializer_list<InputType> stream,
+    Farm(std::vector<InputType>&& stream,
          std::function<OutputType (InputType)> f,
          float ts_goal,
-         unsigned nw) : _emitter(new Emitter<InputType>(stream)),
+         unsigned nw) : _emitter(new Emitter<InputType>(std::move(stream))),
                         _collector(new Collector<OutputType>()),
                         _scheduler(new Scheduler<InputType, OutputType>(f, nw)),
                         _monitor(new Monitor<InputType, OutputType>(_collector, _scheduler, ts_goal))
