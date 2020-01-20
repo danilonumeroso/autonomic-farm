@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include "Constant.hh"
 
 template<class T>
 std::string time_type() = delete;
@@ -36,6 +37,8 @@ public:
     _stop = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed = _stop - _start;
     auto musec = std::chrono::duration_cast<UnitOfTime>(elapsed).count();
+
+    REPORT(std::to_string(musec).append(time_type<UnitOfTime>()));
 
     std::clog << _name << " computed in " << musec << time_type<UnitOfTime>() << std::endl;
   }

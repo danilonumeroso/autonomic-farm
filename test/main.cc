@@ -148,7 +148,7 @@ void par(int nw, float ts_goal) {
   spm::Farm<int,int> farm(std::move(*get_sample_stream()), program, ts_goal, nw);
   std::vector<int> const* results;
   {
-    Timer<std::chrono::seconds> j("Whole job");
+    Timer<std::chrono::milliseconds> j("Whole job");
     results = &farm.run();
   }
 

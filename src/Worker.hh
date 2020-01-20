@@ -17,8 +17,8 @@ namespace spm {
   private:
     enum class State : short { LIVING, WILL_EVENTUALLY_TERMINATE };
     std::function<OutputType (InputType)> f;
-    std::thread* t;
     int id;
+    std::thread* t;
     State state;
   public:
 

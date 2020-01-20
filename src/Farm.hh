@@ -18,7 +18,7 @@ namespace spm {
   class Farm {
 
   public:
-    typedef Worker<InputType, OutputType> worker_type;
+    typedef Worker<InputType, OutputType> WorkerType;
 
     Farm(const Farm&) = delete;
     Farm(const Farm&&) = delete;
@@ -42,7 +42,7 @@ namespace spm {
     const std::vector<OutputType>& run() {
       _monitor->execute();
       while (!_emitter->is_empty()) {
-        worker_type* worker;
+        WorkerType* worker;
 
         // std::cout << "Farm::CYCLE" << std::endl;
 

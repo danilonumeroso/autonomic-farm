@@ -23,8 +23,8 @@ namespace spm {
         _scheduler(scheduler),
         stop(false),
         ts_goal(ts_goal),
-        prev_no_results(0U),
-        times()
+        times(),
+        prev_no_results(0U)
     { }
 
     ~Monitor() {
@@ -63,7 +63,7 @@ namespace spm {
     unsigned prev_no_results;
     std::thread* t;
 
-    static constexpr float RANGE[2] {0.5, 1.5};
+    static constexpr float RANGE[2] {0.75, 1.25};
 
     void default_policy(unsigned no_results) {
       float ts = 1.0/no_results;
@@ -78,8 +78,12 @@ namespace spm {
       LOG(std::string("Ts=").append(std::to_string(ts)));
 
       if (ratio <= RANGE[0]) {
-        LOG("Monitor::REMOVE_WORKER");
-        _scheduler->remove_worker();
+        unsigned to_remove = std::sqrt((int)(1/ratio));
+        LOG(std::string("Monitor::REMOVE_")
+            .append(std::to_string(to_remove))
+            .append("_WORKER")
+            .append(to_remove > 1 ? "S" : ""));
+        _scheduler->remove_worker(to_remove);
         return;
       }
 
