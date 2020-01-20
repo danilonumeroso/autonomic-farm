@@ -28,34 +28,23 @@ namespace spm {
          float ts_goal,
          unsigned nw) : _emitter(new Emitter<InputType>(std::move(stream))),
                         _collector(new Collector<OutputType>()),
-                        _scheduler(new Scheduler<InputType, OutputType>(f, nw)),
-                        _monitor(new Monitor<InputType, OutputType>(_collector, _scheduler, ts_goal))
+                        _scheduler(new SpmScheduler<InputType, OutputType>(f, nw)),
+                        _monitor(new Monitor<InputType, OutputType>(_collector.get(), _scheduler.get(), ts_goal))
     { }
-
-    ~Farm() {
-      delete _monitor;
-      delete _scheduler;
-      delete _collector;
-      delete _emitter;
-    }
 
     const std::vector<OutputType>& run() {
       _monitor->execute();
       while (!_emitter->is_empty()) {
         WorkerType* worker;
 
-        // std::cout << "Farm::CYCLE" << std::endl;
-
-        // worker = _scheduler->pick();
         if ((worker = _scheduler->pick()) == nullptr) {
           std::unique_lock<std::mutex> lock(mutex);
-          // std::cout << "Farm::LOCKED" << std::endl;
           can_emit.wait(lock);
           continue;
         }
 
         InputType next = _emitter->emit();
-        worker->exec(next, _collector, _scheduler);
+        worker->run(next, _collector.get(), _scheduler.get());
       }
 
       _monitor->join();
@@ -65,10 +54,10 @@ namespace spm {
     }
 
   private:
-    Emitter<InputType>* _emitter;
-    Collector<OutputType>* _collector;
-    Scheduler<InputType, OutputType>* _scheduler;
-    Monitor<InputType, OutputType>* _monitor;
+    std::unique_ptr<Emitter<InputType>> _emitter;
+    std::unique_ptr<Collector<OutputType>> _collector;
+    std::unique_ptr<Scheduler<InputType, OutputType>> _scheduler;
+    std::unique_ptr<Monitor<InputType, OutputType>> _monitor;
   };
 }
 #endif

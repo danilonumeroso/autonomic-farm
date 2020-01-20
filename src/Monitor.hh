@@ -71,7 +71,7 @@ namespace spm {
 
       times.push_back(ts);
 #ifdef ENABLE_REPORT
-      REPORT(std::to_string(_scheduler->no_workers())
+      REPORT(std::to_string(_scheduler->get_no_active_workers())
              .append(",")
              .append(std::to_string(ts)));
 #endif

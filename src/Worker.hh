@@ -13,55 +13,78 @@ namespace spm {
 
   template <class InputType, class OutputType>
   class Worker {
-
-  private:
-    enum class State : short { LIVING, WILL_EVENTUALLY_TERMINATE };
-    std::function<OutputType (InputType)> f;
-    int id;
-    std::thread* t;
-    State state;
   public:
 
-    Worker(std::function<OutputType (InputType)> f, int id)
-      : f(f), id(id), t(nullptr), state(State::LIVING)
+    typedef Collector<OutputType> CollectorType;
+    typedef Scheduler<InputType, OutputType> SchedulerType;
+
+    typedef std::function<OutputType(InputType)> Task;
+    typedef unsigned Integer;
+
+    enum class State : short { LIVING, WILL_EVENTUALLY_TERMINATE };
+
+    Worker() = default;
+
+    Worker(Task t, Integer id)
+      : f(t), id(id), state(State::LIVING)
     { }
 
-    Worker(const Worker&) = delete;
-    Worker(const Worker&&) = delete;
-
-    ~Worker() {
-      delete t;
-    }
-
-    int get_id() {
+    inline Integer get_id() {
       return id;
     }
 
-    void exec(InputType x, Collector<OutputType>* collector,
-              Scheduler<InputType, OutputType>* scheduler) {
-
-      // std::cout << "Worker_" << id << "::exec()" << std::endl;
-
-      t = new std::thread([x, this, collector, scheduler] {
-                            InputType res = f(x);
-                            {
-                              std::unique_lock<std::mutex> lock(write_to_output_stream);
-                              collector->push_back(res);
-                            }
-                            scheduler->done(this);
-                          });
-
-    }
-
-    bool will_terminate() {
+    inline bool will_terminate() {
       return state == State::WILL_EVENTUALLY_TERMINATE;
     }
 
-    void drop() {
+    inline void terminate() {
       state = State::WILL_EVENTUALLY_TERMINATE;
     }
 
-    void join() {
+    inline void revive() {
+      state = State::LIVING;
+    }
+
+    virtual void run(InputType x, CollectorType* c, SchedulerType* s) = 0;
+    virtual void join() = 0;
+
+  protected:
+    Task f;
+    Integer id;
+    State state;
+  };
+
+  template <class InputType, class OutputType>
+  class SpmWorker : public Worker<InputType, OutputType> {
+
+  private:
+    using Base = Worker<InputType, OutputType>;
+    std::thread* t;
+  public:
+    typedef typename Base::CollectorType CollectorType;
+    typedef typename Base::SchedulerType SchedulerType;
+    typedef typename Base::Task Task;
+    typedef typename Base::Integer Integer;
+
+    SpmWorker(Task task, Integer id) : Base(task, id), t(nullptr)
+    { }
+
+    ~SpmWorker() {
+      delete t;
+    }
+
+    virtual void run(InputType x, CollectorType* c, SchedulerType* s) {
+      t = new std::thread([x, this, c, s] {
+                            InputType res = Base::f(x);
+                            {
+                              std::unique_lock<std::mutex> lock(write_to_output_stream);
+                              c->push_back(res);
+                            }
+                            s->done(this);
+                          });
+    }
+
+    virtual void join() {
       if (t == nullptr) {
         return;
       }

@@ -1,0 +1,10 @@
+./bin/test_148 1 0.1 > res/results_l148_1_0.1
+./bin/test_148 10 0.1 > res/results_l148_10_0.1
+
+./bin/test_418 1 0.1 > res/results_l418_1_0.1
+./bin/test_418 10 0.1 > res/results_l418_10_0.1
+
+./bin/test_841 1 0.1 > res/results_l841_1_0.1
+./bin/test_841 10 0.1 > res/results_l841_10_0.1
+
+./bin/constant_test 1 0.1 > res/results_constant_test_1_0.1

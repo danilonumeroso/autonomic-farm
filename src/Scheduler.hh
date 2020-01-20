@@ -3,130 +3,158 @@
 
 #include "Worker.hh"
 #include "Emitter.hh"
-#include "Farm.hh"
 #include "Timer.hh"
 #include <functional>
 #include <queue>
 #include <assert.h>
-#include <iostream>
 #include <condition_variable>
+#include <algorithm>
 
 namespace spm {
   extern std::condition_variable can_emit;
 
-  std::mutex modify_workers_queue;
-  std::mutex modify_reservoir;
+  std::mutex WORKERS_QUEUE_MUTEX;
+  std::mutex RESERVOIR_MUTEX;
 
   int _worker_id = 0;
-
-  template <class InputType, class OutputType>
-  class Farm;
 
   template <class InputType, class OutputType>
   class Worker;
 
   template <class InputType, class OutputType>
-  class Scheduler {
+  class SpmWorker;
 
+  template <class InputType, class OutputType>
+  class Scheduler {
   public:
     typedef Worker<InputType, OutputType> WorkerType;
+    typedef std::unique_ptr<WorkerType> UniquePtr;
+    typedef std::function<OutputType (InputType)> Task;
+    typedef unsigned Integer;
 
-    Scheduler(Scheduler&) = delete;
-    Scheduler(Scheduler&&) = delete;
+    Scheduler() = default;
 
-    Scheduler(std::function<OutputType (InputType)> f,
-              unsigned nw)
-      : _all_workers(),
-        _sleeping_workers(),
-        _reservoir(),
-        _f(f)
+    Scheduler(Task t) : workers(), sleeping_workers(),
+                        reservoir(), task(t)
+    { }
+
+    Integer get_no_active_workers() {
+      return std::count_if(workers.cbegin(),
+                           workers.cend(),
+                           [](const UniquePtr& w) {
+                             return !w->will_terminate();
+                           });
+    }
+
+    virtual void add_worker(unsigned) = 0;
+    virtual void remove_worker(unsigned) = 0;
+    virtual WorkerType* pick() = 0;
+    virtual void join() = 0;
+    virtual void done(WorkerType*) = 0;
+
+  protected:
+    std::vector<UniquePtr> workers;
+    std::vector<WorkerType*> sleeping_workers;
+    std::vector<WorkerType*> reservoir;
+    Task task;
+  };
+
+  template <class InputType, class OutputType>
+  class SpmScheduler : public Scheduler<InputType, OutputType> {
+    using Base = Scheduler<InputType, OutputType>;
+
+  public:
+    typedef SpmWorker<InputType, OutputType> WorkerType;
+    typedef typename Base::UniquePtr UniquePtr;
+    typedef typename Base::Task Task;
+    typedef typename Base::Integer Integer;
+
+    SpmScheduler(Task t, Integer nw)
+      : Base(t)
     {
-      for (unsigned i=0; i < nw; ++i) {
-        WorkerType* w = new Worker<InputType, OutputType>(f, ++_worker_id);
-        _all_workers.push_back(w);
-        _sleeping_workers.push_back(w);
-      }
-
-      assert(_sleeping_workers.size() == nw);
+       for (Integer i = 0; i < nw; ++i) {
+        UniquePtr w(new WorkerType(t, ++_worker_id));
+        Base::sleeping_workers.push_back(w.get());
+        Base::workers.push_back(std::move(w));
+       }
     }
 
-    ~Scheduler() {
-      for (auto i = _all_workers.begin(), end = _all_workers.end(); i < end; ++i) {
-        delete *i;
-      }
-    }
-
-    int no_workers() {
-      return _all_workers.size();
-    }
-
-    WorkerType* pick() {
-      if (_sleeping_workers.empty()) {
+    virtual typename Base::WorkerType* pick() {
+      if (Base::sleeping_workers.empty()) {
         return nullptr;
       }
 
-      auto worker = _sleeping_workers.back();
-      _sleeping_workers.pop_back();
+      auto worker = Base::sleeping_workers.back();
+      Base::sleeping_workers.pop_back();
 
       return worker;
     }
 
-    void done(WorkerType* worker) {
-      if (worker->will_terminate()) {
+    virtual void done(typename Base::WorkerType* w) {
+      if (w->will_terminate()) {
         return;
       }
-      std::unique_lock<std::mutex> lock(modify_workers_queue);
 
-      _sleeping_workers.push_back(worker);
+      std::unique_lock<std::mutex> lock(WORKERS_QUEUE_MUTEX);
+
+      Base::sleeping_workers.push_back(w);
       can_emit.notify_one();
-
     }
 
-    void add_worker(unsigned n) {
-      std::unique_lock<std::mutex> lock1(modify_workers_queue);
-      std::unique_lock<std::mutex> lock2(modify_reservoir);
+    virtual void add_worker(unsigned n) {
+      std::unique_lock<std::mutex> lock1(WORKERS_QUEUE_MUTEX);
+      std::unique_lock<std::mutex> lock2(RESERVOIR_MUTEX);
 
-      unsigned added_from_reservoir = 0U;
+      Integer added_from_reservoir = 0U;
 
-      while(!_reservoir.empty() && added_from_reservoir < n) {
-        auto w = _reservoir.back();
-        _reservoir.pop_back();
-        _sleeping_workers.push_back(w);
+      while(!Base::reservoir.empty() && added_from_reservoir < n) {
+
+        auto w = Base::reservoir.back();
+        Base::reservoir.pop_back();
+
+        w->revive();
+        Base::sleeping_workers.push_back(w);
+
+        ++added_from_reservoir;
       }
 
       for (unsigned i = 0; i < (n-added_from_reservoir); ++i) {
-        auto w = new WorkerType(_f, ++_worker_id);
-        _sleeping_workers.push_back(w);
-        _all_workers.push_back(w);
+        UniquePtr w(new WorkerType(Base::task, ++_worker_id));
+        Base::sleeping_workers.push_back(w.get());
+        Base::workers.push_back(std::move(w));
       }
     }
 
-    void remove_worker(unsigned n) {
-      std::unique_lock<std::mutex> lock(modify_reservoir);
+    virtual void remove_worker(Integer n) {
+      std::unique_lock<std::mutex> lock(RESERVOIR_MUTEX);
 
-      if (n >= _all_workers.size()) {
-        n = _all_workers.size() - 1;
+      if (n >= Base::workers.size()) {
+        n = Base::workers.size() - 1;
       }
 
-      for (unsigned i = 0; i < n; ++i) {
-        auto w = _all_workers.back();
-         w->drop();
-        _reservoir.push_back(w);
-      }
-    }
+      for (Integer i = 0; i < n; ++i) {
+        auto w = std::move(Base::workers.back());
+        Base::workers.pop_back();
 
-    void join() {
-      for (auto i = _all_workers.begin(), end = _all_workers.end(); i < end; ++i) {
-        (*i)->join();
+        w->terminate();
+        Base::reservoir.push_back(w.get());
+
+        Base::workers.insert(Base::workers.begin(), std::move(w));
       }
     }
 
-  private:
-    std::vector<WorkerType*> _all_workers;
-    std::vector<WorkerType*> _sleeping_workers;
-    std::vector<WorkerType*> _reservoir;
+    virtual void join() {
+      for (const auto& i: Base::workers) {
+        i->join();
+      }
+    }
 
-    std::function<OutputType (InputType)> _f;
+  // private:
+  //   std::vector<UniquePtr> workers;
+  //   std::vector<WorkerType*> sleeping_workers;
+  //   std::vector<WorkerType*> reservoir;
+
+  //   std::function<OutputType (InputType)> _f;
   };
 }
 #endif
