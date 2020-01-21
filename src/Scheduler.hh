@@ -9,13 +9,9 @@
 #include <assert.h>
 #include <condition_variable>
 #include <algorithm>
+#include "Synchronization.hh"
 
 namespace spm {
-  extern std::condition_variable can_emit;
-
-  std::mutex WORKERS_QUEUE_MUTEX;
-  std::mutex RESERVOIR_MUTEX;
-
   int _worker_id = 0;
 
   template <class InputType, class OutputType>
@@ -95,15 +91,16 @@ namespace spm {
         return;
       }
 
-      std::unique_lock<std::mutex> lock(WORKERS_QUEUE_MUTEX);
+      __LOCK_SLEEPING_WORKERS_QUEUE__
 
       Base::sleeping_workers.push_back(w);
-      can_emit.notify_one();
+
+      __NOTIFY_EMITTER__;
     }
 
     virtual void add_worker(unsigned n) {
-      std::unique_lock<std::mutex> lock1(WORKERS_QUEUE_MUTEX);
-      std::unique_lock<std::mutex> lock2(RESERVOIR_MUTEX);
+      __LOCK_SLEEPING_WORKERS_QUEUE__
+      __LOCK_RESERVOIR__
 
       Integer added_from_reservoir = 0U;
 
@@ -126,7 +123,7 @@ namespace spm {
     }
 
     virtual void remove_worker(Integer n) {
-      std::unique_lock<std::mutex> lock(RESERVOIR_MUTEX);
+      __LOCK_RESERVOIR__
 
       if (n >= Base::workers.size()) {
         n = Base::workers.size() - 1;
@@ -148,13 +145,6 @@ namespace spm {
         i->join();
       }
     }
-
-  // private:
-  //   std::vector<UniquePtr> workers;
-  //   std::vector<WorkerType*> sleeping_workers;
-  //   std::vector<WorkerType*> reservoir;
-
-  //   std::function<OutputType (InputType)> _f;
   };
 }
 #endif

@@ -9,19 +9,15 @@
 #include <functional>
 #include <queue>
 #include <condition_variable>
+#include "Synchronization.hh"
 
 namespace spm {
-  std::condition_variable can_emit;
-  std::mutex mutex;
 
   template <class InputType, class OutputType>
   class Farm {
 
   public:
     typedef Worker<InputType, OutputType> WorkerType;
-
-    Farm(const Farm&) = delete;
-    Farm(const Farm&&) = delete;
 
     Farm(std::vector<InputType>&& stream,
          std::function<OutputType (InputType)> f,
@@ -38,8 +34,7 @@ namespace spm {
         WorkerType* worker;
 
         if ((worker = _scheduler->pick()) == nullptr) {
-          std::unique_lock<std::mutex> lock(mutex);
-          can_emit.wait(lock);
+          __WAIT_FOR_WORKERS__
           continue;
         }
 
