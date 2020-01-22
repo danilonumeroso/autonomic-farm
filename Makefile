@@ -1,5 +1,5 @@
 CXX	 = g++
-CXXFLAGS = -Wall -Wextra -std=c++11 -static-libstdc++
+CXXFLAGS = -Wall -Wextra -std=c++11 -static-libstdc++ -O3
 LIBS	 = -lpthread
 BINDIR   = bin
 TEST     = test

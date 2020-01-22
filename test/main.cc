@@ -7,7 +7,7 @@
 const int L1 = 100;
 const int L4 = 400;
 const int L8 = 800;
-const int NO_ELEMENTS = 75;
+const int NO_ELEMENTS = 200;
 
 #ifdef TEST_4L_1L_8L
 

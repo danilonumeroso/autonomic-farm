@@ -8,6 +8,7 @@ namespace spm {
   std::mutex emitter_mutex;
   std::mutex sleeping_workers_queue_mutex;
   std::mutex reservoir_mutex;
+  std::mutex output_stream;
 }
 
 #define __WAIT_FOR_WORKERS__ std::unique_lock<std::mutex> lock_emitter(spm::emitter_mutex); \
@@ -17,5 +18,7 @@ namespace spm {
 #define __LOCK_SLEEPING_WORKERS_QUEUE__ std::unique_lock<std::mutex> lock_workers_queue(sleeping_workers_queue_mutex);
 
 #define __LOCK_RESERVOIR__ std::unique_lock<std::mutex> lock_reservoir(reservoir_mutex);
+
+#define __LOCK_OUTPUT_STREAM__ std::unique_lock<std::mutex> lock_output_stream(output_stream);
 
 #endif

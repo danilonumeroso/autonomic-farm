@@ -9,7 +9,6 @@
 #include <mutex>
 
 namespace spm {
-  std::mutex write_to_output_stream;
 
   template <class InputType, class OutputType>
   class Worker {
@@ -76,10 +75,7 @@ namespace spm {
     virtual void run(InputType x, CollectorType* c, SchedulerType* s) {
       t = new std::thread([x, this, c, s] {
                             InputType res = Base::f(x);
-                            {
-                              std::unique_lock<std::mutex> lock(write_to_output_stream);
-                              c->push_back(res);
-                            }
+                            c->push_back(res);
                             s->done(this);
                           });
     }

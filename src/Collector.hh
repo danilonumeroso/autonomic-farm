@@ -1,6 +1,8 @@
 #ifndef COLLECTOR_HH_GUARD
 #define COLLECTOR_HH_GUARD
 
+#include "Synchronization.hh"
+
 namespace spm {
 
   template <class OutputType>
@@ -8,6 +10,7 @@ namespace spm {
   public:
 
     void push_back(const OutputType& r) {
+      __LOCK_OUTPUT_STREAM__
       results.push_back(r);
     }
 

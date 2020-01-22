@@ -63,10 +63,10 @@ namespace spm {
     unsigned prev_no_results;
     std::thread* t;
 
-    static constexpr float RANGE[2] {0.75, 1.25};
+    static constexpr float RANGE[2] {0.9, 1.1};
 
     void default_policy(unsigned no_results) {
-      float ts = 1.0/no_results;
+      float ts = (no_results > 0) ? 1.0/no_results : 2;
       float ratio = ts/ts_goal;
 
       times.push_back(ts);
@@ -75,10 +75,15 @@ namespace spm {
              .append(",")
              .append(std::to_string(ts)));
 #endif
-      LOG(std::string("Ts=").append(std::to_string(ts)));
+      LOG(std::string("Ts=")
+          .append(std::to_string(ts))
+          .append(" - ")
+          .append(std::to_string(_scheduler->get_no_active_workers()))
+          );
 
       if (ratio <= RANGE[0]) {
         unsigned to_remove = std::sqrt((int)(1/ratio));
+        // unsigned to_remove = (int)(1/ratio);
         LOG(std::string("Monitor::REMOVE_")
             .append(std::to_string(to_remove))
             .append("_WORKER")
@@ -89,6 +94,7 @@ namespace spm {
 
       if (ratio >= RANGE[1]) {
         unsigned to_add = std::sqrt((int)ratio);
+        // unsigned to_add = (int)ratio;
         LOG(std::string("Monitor::ADD_")
             .append(std::to_string(to_add))
             .append("_WORKER")

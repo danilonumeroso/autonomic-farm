@@ -31,15 +31,11 @@ namespace spm {
     Scheduler() = default;
 
     Scheduler(Task t) : workers(), sleeping_workers(),
-                        reservoir(), task(t)
+                        reservoir(), task(t), active_workers(0)
     { }
 
     Integer get_no_active_workers() {
-      return std::count_if(workers.cbegin(),
-                           workers.cend(),
-                           [](const UniquePtr& w) {
-                             return !w->will_terminate();
-                           });
+      return active_workers;
     }
 
     virtual void add_worker(unsigned) = 0;
@@ -53,6 +49,7 @@ namespace spm {
     std::vector<WorkerType*> sleeping_workers;
     std::vector<WorkerType*> reservoir;
     Task task;
+    Integer active_workers;
   };
 
   template <class InputType, class OutputType>
@@ -72,6 +69,7 @@ namespace spm {
         UniquePtr w(new WorkerType(t, ++_worker_id));
         Base::sleeping_workers.push_back(w.get());
         Base::workers.push_back(std::move(w));
+        ++Base::active_workers;
        }
     }
 
@@ -95,12 +93,10 @@ namespace spm {
 
       Base::sleeping_workers.push_back(w);
 
-      __NOTIFY_EMITTER__;
+      __NOTIFY_EMITTER__
     }
 
     virtual void add_worker(unsigned n) {
-      __LOCK_SLEEPING_WORKERS_QUEUE__
-      __LOCK_RESERVOIR__
 
       Integer added_from_reservoir = 0U;
 
@@ -110,6 +106,7 @@ namespace spm {
         Base::reservoir.pop_back();
 
         w->revive();
+        __LOCK_SLEEPING_WORKERS_QUEUE__
         Base::sleeping_workers.push_back(w);
 
         ++added_from_reservoir;
@@ -117,27 +114,35 @@ namespace spm {
 
       for (unsigned i = 0; i < (n-added_from_reservoir); ++i) {
         UniquePtr w(new WorkerType(Base::task, ++_worker_id));
+        __LOCK_SLEEPING_WORKERS_QUEUE__
         Base::sleeping_workers.push_back(w.get());
         Base::workers.push_back(std::move(w));
       }
+
+      __NOTIFY_EMITTER__
+
+      Base::active_workers += n;
     }
 
     virtual void remove_worker(Integer n) {
-      __LOCK_RESERVOIR__
 
-      if (n >= Base::workers.size()) {
-        n = Base::workers.size() - 1;
+      if (n >= Base::active_workers) {
+        n = Base::active_workers - 1;
       }
 
       for (Integer i = 0; i < n; ++i) {
-        auto w = std::move(Base::workers.back());
-        Base::workers.pop_back();
 
-        w->terminate();
-        Base::reservoir.push_back(w.get());
+        auto it = std::find_if(Base::workers.begin(),
+                               Base::workers.end(),
+                               [](const UniquePtr& w) {
+                                 return !w->will_terminate();
+                               });
 
-        Base::workers.insert(Base::workers.begin(), std::move(w));
+        (*it)->terminate();
+        Base::reservoir.push_back((*it).get());
       }
+
+      Base::active_workers -= n;
     }
 
     virtual void join() {
