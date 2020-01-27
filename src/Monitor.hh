@@ -55,6 +55,8 @@ namespace spm {
     }
 
   private:
+    enum class State { DECREASE = -1, NOTHING, INCREASE };
+
     Collector<OutputType>* _collector;
     Scheduler<InputType, OutputType>* _scheduler;
     bool stop;
@@ -62,6 +64,7 @@ namespace spm {
     std::vector<float> times;
     unsigned prev_no_results;
     std::thread* t;
+    State action = State::NOTHING;
 
     static constexpr float RANGE[2] {0.9, 1.1};
 
@@ -82,6 +85,14 @@ namespace spm {
           );
 
       if (ratio <= RANGE[0]) {
+        State prev = action;
+        action = State::DECREASE;
+
+        if (prev == State::INCREASE) {
+          LOG(std::string("Monitor::STABILITY"));
+          return;
+        }
+
         unsigned to_remove = std::sqrt((int)(1/ratio));
         // unsigned to_remove = (int)(1/ratio);
         LOG(std::string("Monitor::REMOVE_")
@@ -93,6 +104,14 @@ namespace spm {
       }
 
       if (ratio >= RANGE[1]) {
+        State prev = action;
+        action = State::INCREASE;
+
+        if (prev == State::DECREASE) {
+          LOG(std::string("Monitor::STABILITY"));
+          return;
+        }
+
         unsigned to_add = std::sqrt((int)ratio);
         // unsigned to_add = (int)ratio;
         LOG(std::string("Monitor::ADD_")
@@ -103,6 +122,7 @@ namespace spm {
         return;
       }
 
+      action = State::NOTHING;
       LOG("Monitor::DO_NOTHING");
     }
   };

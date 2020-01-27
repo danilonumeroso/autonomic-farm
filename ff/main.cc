@@ -1,16 +1,50 @@
-#include "../src/Farm.hh"
-#include <iostream>
 #include <thread>
-#include "../src/Timer.hh"
-#include "../src/Constant.hh"
-#include <iterator>
+#include <set>
+#include <math.h>
+#include <map>
+#include <chrono>
+#include <iostream>
+#include <functional>
+#include <ff/ff.hpp>
 #include <random>
+
+#include "../src/Timer.hh"
+#include "Emitter.hh"
+#include "Worker.hh"
+#include "Collector.hh"
+#include "Monitor.hh"
+
+using namespace ff;
+
+const int MAX_NW = 128;
+
+int program(int time) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(time));
+  return time;
+}
+
+// External Emitter
+struct FirstStage: ff_node_t<int> {
+
+  FirstStage(std::vector<int>* stream)
+    : stream(stream)
+  { }
+
+  int* svc(int*) {
+    for (auto first = stream->rbegin(), last = stream->rend(); first != last; ++first) {
+      ff_send_out(new int(*first));
+    }
+    return EOS;
+  }
+
+  std::vector<int>* stream;
+};
 
 const int L1 = 100;
 const int L4 = 400;
 const int L8 = 800;
 const int NO_ELEMENTS = 200;
-const float STD_DEV = 200.0;
+const float STD_DEV = 0;
 #ifdef TEST_4L_1L_8L
 
 std::vector<int>* get_sample_stream() {
@@ -125,46 +159,58 @@ std::vector<int>* get_sample_stream() {
 
 #endif
 
-int program(int x) {
-  std::this_thread::sleep_for(std::chrono::milliseconds(x));
-  return x;
-}
-
-void par(int nw, float ts_goal) {
-  spm::Farm<int,int> farm(std::move(*get_sample_stream()), program, ts_goal, nw);
-  std::vector<int> const* results;
-  {
-    Timer<std::chrono::milliseconds> j("Whole job");
-    results = &farm.run();
+int main(int argc, char* argv[]) {
+  if(argc < 3){
+    std::cout << "Usage: ./ff [n_workers] [ts_goal]" << std::endl;
+    return 1;
   }
 
-  std::clog << results->size() << " results collected" << std::endl;
-}
+  int nw = atoi(argv[1]);
+  float ts_goal = atof(argv[2]);
 
-void seq() {
-  std::vector<int>* stream = get_sample_stream();
+  FirstStage fs(get_sample_stream());
+
+  // for (const auto& i: *(fs.stream)) {
+  //   std::cout << i << std::endl;
+  // }
+
+  std::vector<ff_node*> workers;
+
+  ff_farm ff_autonomic_farm;
+
+  for (auto i=0; i < MAX_NW; ++i) {
+    workers.push_back(new Worker(program));
+  }
+
+  ff_autonomic_farm.add_workers(std::move(workers));
+  ff_autonomic_farm.cleanup_workers();
+
+  Emitter E(ff_autonomic_farm.getlb(), nw);
+  ff_autonomic_farm.remove_collector();
+  ff_autonomic_farm.add_emitter(&E);
+  ff_autonomic_farm.wrap_around(); // connects workers to emitter
+
+  Collector C;
+  ff_autonomic_farm.add_collector(&C);
+  ff_autonomic_farm.wrap_around(); // connects collector to emitter
+
+
+  ff_Pipe<> pipe(fs, ff_autonomic_farm);
   {
-    Timer<std::chrono::seconds> s("Sequential version");
-    for (auto start = stream->cbegin(), end = stream->cend(); start < end; ++start) {
-      Timer<std::chrono::milliseconds> s("Step");
-      program(*start);
+    Timer<std::chrono::milliseconds> t("FF Version");
+    Monitor monitor(&C, &E, ts_goal, fs.stream->size());
+    monitor.execute();
+    if (pipe.run_then_freeze()<0) {
+      error("running pipe\n");
+      return -1;
     }
-  }
-}
-
-
-int main(int argc, char** argv) {
-  if (argc == 1) {
-    seq();
-    return 0;
+    pipe.wait_freezing();
+    monitor.join();
+    pipe.wait();
   }
 
-  if (argc == 3) {
-    par(atoi(argv[1]),
-        atof(argv[2]));
-    return 0;
-  }
-
-  std::cout << "Usage: [name] [nw] [ts_goal]" << std::endl;
-  return 1;
+  // for (const auto& r: C.results) {
+  //   std::cout << *r << std::endl;
+  // }
+  return 0;
 }
